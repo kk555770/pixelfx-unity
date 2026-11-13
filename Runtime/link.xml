@@ -1,0 +1,3 @@
+<linker>
+    <assembly fullname="Pixelfx" preserve="all" />
+</linker>
