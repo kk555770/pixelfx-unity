@@ -1,3 +1,5 @@
+// The pop (a white flash, a ring snapping out, star sparks with short trails) follows Sprite Fusion's
+// open-source pickup (https://www.spritefusion.com/pixel-art-vfx/pickup), MIT License, Copyright (c) 2026 Hugo Duprez.
 using System;
 using System.Collections.Generic;
 using static Pixelfx.Px;
@@ -14,7 +16,13 @@ namespace Pixelfx
                 ["palette"] = new[] { "#1a0516", "#3d0a33", "#701560", "#b0228f", "#f53cd1", "#ff86e6", "#ffd2f6", "#ffffff" },
                 ["seed"] = 3.0,
             },
-            (o, e) => new CollectBurst(o, e));
+            (o, e) => new CollectBurst(o, e))
+        {
+            Title = "Collect burst",
+            Desc = "The moment of pickup: a white flash and a cross of light, a thin ring snapping out ahead of a softer one, twinkles thrown wide on curving paths that brake, hang and wink out.",
+            Tags = new[] { "pickup", "collect", "burst", "sparkle", "reward", "one-shot" },
+            Bg = "ground",
+        };
 
         sealed class Star
         {
@@ -86,8 +94,8 @@ namespace Pixelfx
                 if (s.tr.Count > 4) s.tr.RemoveAt(s.tr.Count - 1);
                 s.a += s.turn * dt * Math.Max(0, 1 - s.age * 1.5);
                 s.sp -= s.sp * 4.3 * dt;
-                s.x += Math.Cos(s.a) * s.sp * dt;
-                s.y += Math.Sin(s.a) * s.sp * dt + 6 * s.age * dt;
+                s.x += Px.Cos(s.a) * s.sp * dt;
+                s.y += Px.Sin(s.a) * s.sp * dt + 6 * s.age * dt;
                 if (s.y > -2)
                 {
                     s.y = -2;
@@ -128,9 +136,9 @@ namespace Pixelfx
             {
                 if (s.age > s.life) continue;
                 emitter.Shift(p, s.bornX, s.bornY);
-                double k = 1 - s.age / s.life, tw = 0.65 + 0.35 * Math.Sin(s.age * 26 + s.ph);
+                double k = 1 - s.age / s.life, tw = 0.65 + 0.35 * Px.Sin(s.age * 26 + s.ph);
                 for (int i = 1; i < s.tr.Count; i++) p.Dot(s.tr[i].x, s.tr[i].y, i < 2 ? C[5] : C[4], (1 - i / 4.0) * k * 1.4);
-                if (k < 0.3 && Math.Sin(s.age * 40 + s.ph) < 0) continue;
+                if (k < 0.3 && Px.Sin(s.age * 40 + s.ph) < 0) continue;
                 PickupsLib.Glint(p, s.x, s.y, Round(s.size * tw * Math.Min(1, k * 2.5)), s.c, 0.45 * k);
             }
             foreach (Mote m in motes)
@@ -138,7 +146,7 @@ namespace Pixelfx
                 double a = t - m.d;
                 if (a < 0 || a > m.life) continue;
                 emitter.Shift(p, m.bornX, m.bornY);
-                double k = 1 - a / m.life, x = m.x + Math.Sin(a * 6 + m.w) * 1.5, y = m.y + m.vy * a;
+                double k = 1 - a / m.life, x = m.x + Px.Sin(a * 6 + m.w) * 1.5, y = m.y + m.vy * a;
                 p.Dot(x, y, k > 0.5 ? C[6] : C[5], k * 1.5);
                 p.Glow(x + 0.5, y + 0.5, 3, C[5], 0.3 * k);
             }

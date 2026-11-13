@@ -1,0 +1,17 @@
+<!-- Runs the parity check outside Unity: the package is engine-free, so it compiles as plain .NET. See Program.cs for arguments. -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>CS8632</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Runtime/**/*.cs" />
+    <Compile Include="../../Editor/ParityRun.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+</Project>

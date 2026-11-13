@@ -1,2 +1,4 @@
 node_modules/
 Tools/.upstream.json
+Tools/ParityCli~/bin/
+Tools/ParityCli~/obj/

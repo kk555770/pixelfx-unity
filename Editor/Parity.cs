@@ -24,6 +24,35 @@ namespace Pixelfx
             public Case[] cases;
         }
 
+        /// <summary>One act of the JS original: its timing as one line of text and the hash of each frame at 30 fps.</summary>
+        [Serializable]
+        public sealed class ActCase
+        {
+            public string id;
+            public string timing;
+            public int w;
+            public int h;
+            public string[] frames;
+        }
+
+        [Serializable]
+        sealed class ActReference
+        {
+            public ActCase[] cases;
+        }
+
+        public static Dictionary<string, ActCase> LoadActs(string path) =>
+            JsonUtility.FromJson<ActReference>(File.ReadAllText(path)).cases.ToDictionary(c => c.id);
+
+        /// <summary>Null when the module's act times and draws every frame the way the JS original does, else what differs.</summary>
+        public static string ActMismatch(ActCase js, Module module)
+        {
+            var bad = ParityRun.ActMismatch(module, js.timing, js.w, js.h, js.frames);
+            if (bad == null) return null;
+            var (frame, rgba, why) = bad.Value;
+            return rgba == null ? why : $"{why}; this port's frame is {Dump($"{js.id}-act-{frame}.unity.png", js.w, js.h, rgba)}";
+        }
+
         public static readonly string DumpFolder = Path.Combine(Path.GetTempPath(), "pixelfx-parity");
 
         public static Dictionary<string, Case> Load(string path) =>

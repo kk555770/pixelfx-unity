@@ -1,3 +1,8 @@
+// Shared by the impacts: the hit star, a ring that breaks into flying arcs, floor cracks that glow and cool,
+// standing shock fronts, soft lumpy dust rings, faceted tumbling rocks, and the stone colors they share.
+// The star and flying-arc recipes are adapted from Sprite Fusion's open-source impact
+// (https://www.spritefusion.com/pixel-art-vfx/impact), and the stone colors from its explosion
+// (https://www.spritefusion.com/pixel-art-vfx/explosion), MIT License, Copyright (c) 2026 Hugo Duprez.
 using System;
 using System.Collections.Generic;
 using static Pixelfx.Px;
@@ -8,7 +13,7 @@ namespace Pixelfx
     {
         public static readonly uint SOOT = Hex("#0d0a12");
         public static readonly uint OUTLINE = Hex("#1a1422");
-        static readonly double LIGHT = Math.Atan2(-1, -1);
+        static readonly double LIGHT = Atan2(-1, -1);
 
         public readonly struct Stone
         {
@@ -36,13 +41,32 @@ namespace Pixelfx
             }
         }
 
+        /// <summary>
+        /// Spikes for a hit star: n of them round the circle, longer towards aim (fwd) and a little behind it (back).
+        /// len and w: [min, max] base length and root half-width; jag scales every other spike (short teeth between).
+        /// </summary>
+        public static Spike[] Spikes(Rng R, int n, double aim, double len0 = 7, double len1 = 10, double w0 = 1.5, double w1 = 2.1, double fwd = 1.8, double back = 0.6, double jag = 1, double jit = 0.18)
+        {
+            var list = new Spike[n];
+            for (int i = 0; i < n; i++)
+            {
+                double a = aim + (double)i / n * TAU + R.Range(-jit, jit), cb = Px.Cos(a - aim);
+                double L = R.Range(len0, len1) * (1 + fwd * Px.Pow(Math.Max(0, cb), 3) + back * Px.Pow(Math.Max(0, -cb), 3)) * (i % 2 != 0 ? jag : 1);
+                list[i] = new Spike(a, L, R.Range(w0, w1) * (i % 2 != 0 ? Math.Sqrt(jag) : 1));
+            }
+            return list;
+        }
+
+        /// <summary>The spike with its length multiplied by k (the JS mutates s.len in place).</summary>
+        public static Spike Stretched(Spike s, double k) => new Spike(s.a, s.len * k, s.w);
+
         public static void Star(Painter p, double x, double y, Spike[] list, double sc, double th, uint[] cols, double a = 1, double heart = 2.4)
         {
             uint rim = cols[0], body = cols[1], inner = cols[2], core = cols[3];
             for (int pass = 0; pass < 3; pass++)
                 foreach (Spike s in list)
                 {
-                    double c = Math.Cos(s.a), sn = Math.Sin(s.a), L = s.len * sc;
+                    double c = Px.Cos(s.a), sn = Px.Sin(s.a), L = s.len * sc;
                     for (double d = 0; d <= L; d += 0.5)
                     {
                         if (pass == 2 && d > L * 0.55) break;
@@ -55,6 +79,42 @@ namespace Pixelfx
             double r = heart * sc * Math.Sqrt(th);
             p.Circle(x, y, r + 0.8, inner, a);
             p.Circle(x, y, r, core, a);
+        }
+
+        /// <summary>One arc of a broken ring: its centre angle, how much of its share it gives up (gap), how fast it flies out (dr), its thickness scale (w).</summary>
+        public readonly struct Seg
+        {
+            public readonly double a, gap, dr, w;
+
+            public Seg(double a, double gap, double dr, double w = 1)
+            {
+                this.a = a;
+                this.gap = gap;
+                this.dr = dr;
+                this.w = w;
+            }
+        }
+
+        /// <summary>
+        /// A ring that breaks into arcs: segs evenly round the ring. brk 0 draws a whole ring th thick; as brk grows each arc shrinks,
+        /// tapers at both ends into a crescent and drifts out at its own speed. c is the outer edge's color, c2 the inner's; sy squashes
+        /// it onto a plane; nothing is drawn below maxY (a floor).
+        /// </summary>
+        public static void BrokenRing(Painter p, double x, double y, double r, double th, Seg[] segs, double brk, uint c, uint c2, double k = 1, double sy = 1, double maxY = double.PositiveInfinity)
+        {
+            if (r <= 0 || k <= 0) return;
+            double full = TAU / segs.Length;
+            foreach (Seg s in segs)
+            {
+                double span = full * (1 - s.gap * brk) + 0.02, rr = r * (1 + s.dr * brk), m = Math.Max(4, Math.Ceiling(rr * span * 1.8));
+                for (int j = 0; j <= m; j++)
+                {
+                    double u = j / m, ang = s.a + (u - 0.5) * span, w = Math.Max(0.5, th * s.w * (1 - brk * Px.Pow(Math.Abs(2 * u - 1), 1.6)));
+                    double ca = Px.Cos(ang), sa = Px.Sin(ang);
+                    for (double o = -w / 2; o <= w / 2 + 0.01; o += 0.5)
+                        if (y + sa * (rr + o) * sy < maxY) p.Dot(x + ca * (rr + o), y + sa * (rr + o) * sy, o > -0.26 ? c : c2, k);
+                }
+            }
         }
 
         public sealed class Crack
@@ -72,8 +132,8 @@ namespace Pixelfx
             {
                 double s = Math.Min(L - d, R.Range(step0, step1));
                 cur += R.Range(-jit, jit) + (a - cur) * steer;
-                x += Math.Cos(cur) * s;
-                y = Clamp(y + Math.Sin(cur) * s, 0.5, maxY);
+                x += Px.Cos(cur) * s;
+                y = Clamp(y + Px.Sin(cur) * s, 0.5, maxY);
                 d += s;
                 pts.Add(new[] { x, y, d0 + d });
             }
@@ -86,7 +146,7 @@ namespace Pixelfx
             for (int i = 0; i < n; i++)
             {
                 int side = i % 2 != 0 ? 1 : -1;
-                double dip = 0.06 + Math.Pow(R.Next(), 1.7) * dive, L = R.Range(len0, len1) * (1 - 0.5 * dip / (dive + 0.06));
+                double dip = 0.06 + Px.Pow(R.Next(), 1.7) * dive, L = R.Range(len0, len1) * (1 - 0.5 * dip / (dive + 0.06));
                 double a = side > 0 ? dip : Math.PI - dip;
                 double[][] pts = Walk(R, side * R.Range(x00, x01), R.Range(0.5, 1.5), a, L, maxY);
                 var c = new Crack { pts = pts, len = L, t0 = R.Range(0, 0.035) };
@@ -140,7 +200,7 @@ namespace Pixelfx
                 if (py > 0) return 0;
                 double ey = (py - cy) / ry;
                 if (ey <= -1 || ey >= 1) return 0;
-                double e2 = 1 - ey * ey, edge = rx * Math.Sqrt(e2) - rx, wt = w * Math.Pow(e2, 0.45), q = (edge - (px - x) * dir) / Math.Max(0.5, wt);
+                double e2 = 1 - ey * ey, edge = rx * Math.Sqrt(e2) - rx, wt = w * Px.Pow(e2, 0.45), q = (edge - (px - x) * dir) / Math.Max(0.5, wt);
                 if (q < 0 || q > 1) return 0;
                 o.c = q < 0.28 ? cols[0] : q < 0.62 ? cols[1] : cols[2];
                 o.a = k * (ey < -0.8 ? 0.7 : 1) * (q > 0.7 ? 1.25 - q * 0.8 : 1);
@@ -156,13 +216,13 @@ namespace Pixelfx
             for (int y = Floor(cy - (r + W) * sy) - 1; y <= Math.Min(maxY - 1, Math.Ceiling(cy + (r + W) * sy) + 1); y++)
             for (int x = Floor(cx - r - W) - 1; x <= Math.Ceiling(cx + r + W) + 1; x++)
             {
-                double dx = x + 0.5 - cx, dy = (y + 0.5 - cy) / sy, d = Hypot(dx, dy), g = Math.Atan2(dy, dx);
+                double dx = x + 0.5 - cx, dy = (y + 0.5 - cy) / sy, d = Hypot(dx, dy), g = Atan2(dy, dx);
                 if ((half < 0 && dy >= 0) || (half > 0 && dy < 0)) continue;
-                double lumpy = 0.6 + 0.3 * Math.Sin(5 * g + ph) + 0.18 * Math.Sin(11 * g + ph * 2.1) + 0.12 * Math.Sin(17 * g + ph * 0.7);
-                double wt = w * lumpy, off = Math.Abs(d - r - w * 0.25 * Math.Sin(7 * g + ph));
+                double lumpy = 0.6 + 0.3 * Px.Sin(5 * g + ph) + 0.18 * Px.Sin(11 * g + ph * 2.1) + 0.12 * Px.Sin(17 * g + ph * 0.7);
+                double wt = w * lumpy, off = Math.Abs(d - r - w * 0.25 * Px.Sin(7 * g + ph));
                 if (off >= wt) continue;
-                double tear = brk > 0 ? Clamp((0.55 + 0.45 * Math.Sin(6 * g + ph * 1.7) - brk) / 0.25) : 1;
-                double a = k * (1 - Math.Pow(off / wt, 2)) * tear;
+                double tear = brk > 0 ? Clamp((0.55 + 0.45 * Px.Sin(6 * g + ph * 1.7) - brk) / 0.25) : 1;
+                double a = k * (1 - Px.Pow(off / wt, 2)) * tear;
                 if (a > 0.01) p.Blend(x, y, dy < 0 && d > r - wt * 0.3 ? lite : c, a);
             }
         }
@@ -176,13 +236,13 @@ namespace Pixelfx
 
         public static void Rock(Painter p, Emitter e, Bits.Bit b, double[] pts, Stone st)
         {
-            double r = 0.75 + b.s * 0.8, fade = Math.Min(1, b.life / 0.5), ca = Math.Cos(b.a), sa = Math.Sin(b.a);
+            double r = 0.75 + b.s * 0.8, fade = Math.Min(1, b.life / 0.5), ca = Px.Cos(b.a), sa = Px.Sin(b.a);
             int n = pts.Length;
             e.Shift(p, b.bornX, b.bornY);
             p.Shade(b.x - r - 2, b.y - r - 2, b.x + r + 2, b.y + r + 2, (x, y, o) =>
             {
                 double dx = x - b.x, dy = y - b.y, u = dx * ca + dy * sa, v = -dx * sa + dy * ca, d = Hypot(u, v);
-                double ang = Math.Atan2(v, u);
+                double ang = Atan2(v, u);
                 if (ang < 0) ang += TAU;
                 double f = ang / TAU * n, w = f - Math.Floor(f);
                 int i = (int)Math.Floor(f) % n;
@@ -190,7 +250,7 @@ namespace Pixelfx
                 if (d > edge + 0.85) return 0;
                 o.a = fade;
                 if (d > edge) return OUTLINE;
-                double lit = Math.Cos((i + 0.5) / n * TAU + b.a - LIGHT);
+                double lit = Px.Cos((i + 0.5) / n * TAU + b.a - LIGHT);
                 if (d < edge * 0.42) return lit > 0.55 ? st.light : st.body;
                 return lit > 0.35 ? st.light : lit < -0.4 ? st.shade : st.body;
             });

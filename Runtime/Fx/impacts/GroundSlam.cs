@@ -1,3 +1,5 @@
+// The rocks, grit, rolling floor dust and dust column are adapted from Sprite Fusion's open-source explosion
+// (https://www.spritefusion.com/pixel-art-vfx/explosion), MIT License, Copyright (c) 2026 Hugo Duprez.
 using System;
 using System.Collections.Generic;
 using static Pixelfx.Px;
@@ -16,7 +18,13 @@ namespace Pixelfx
                 ["reach"] = 104.0,
                 ["seed"] = 5.0,
             },
-            (o, e) => new GroundSlam(o, e));
+            (o, e) => new GroundSlam(o, e))
+        {
+            Title = "Ground slam",
+            Desc = "Something lands hard: the floor flashes and cracks, two crescent shock waves race out along it, a dust wave and a tall dust cloud rise, rocks erupt, bounce and settle.",
+            Tags = new[] { "impact", "ground", "slam", "shockwave", "quake", "rocks", "dust", "one-shot" },
+            Bg = "ground",
+        };
 
         sealed class Ember
         {
@@ -81,7 +89,7 @@ namespace Pixelfx
                 int s = R.Sign();
                 double a = low ? (s > 0 ? -R.Range(0.04, 0.6) : Math.PI + R.Range(0.04, 0.6)) : -Math.PI / 2 + R.Range(-1.15, 1.15);
                 double sp = low ? R.Range(150, 380) : R.Range(200, 500);
-                ps.Spawn(P.Spark, R.Range(-4, 4), -1, Math.Cos(a) * sp, Math.Sin(a) * sp, low ? R.Range(0.2, 0.5) : R.Range(0.25, 0.65), WHITE, 1, low ? 0 : R.Range(0, 0.05));
+                ps.Spawn(P.Spark, R.Range(-4, 4), -1, Px.Cos(a) * sp, Px.Sin(a) * sp, low ? R.Range(0.2, 0.5) : R.Range(0.25, 0.65), WHITE, 1, low ? 0 : R.Range(0, 0.05));
             }
             for (int i = 0; i < 20; i++)
             {
@@ -89,7 +97,7 @@ namespace Pixelfx
                 double a = -Math.PI / 2 + R.Range(-0.5, 0.5), sp = s > 3 ? R.Range(110, 190) : R.Range(170, 380) * (s > 2 ? 0.8 : 1);
                 var b = new Bits.Bit
                 {
-                    kind = B.Chunk, x = R.Range(-7, 7), y = -2, vx = Math.Cos(a) * sp, vy = Math.Sin(a) * sp, g = 1, drag = 0.4, bounce = 0.38,
+                    kind = B.Chunk, x = R.Range(-7, 7), y = -2, vx = Px.Cos(a) * sp, vy = Px.Sin(a) * sp, g = 1, drag = 0.4, bounce = 0.38,
                     life = R.Range(1.9, 2.7), a = R.Range(0, TAU), va = R.Range(-14, 14), s = s,
                 };
                 rocks[b] = new Rock { pts = ImpactsLib.RockShape(R) };
@@ -98,7 +106,7 @@ namespace Pixelfx
             for (int i = 0; i < 110; i++)
             {
                 double u = R.Range(-1, 1), a = -Math.PI / 2 + u * 0.65, sp = R.Range(110, 380) * (1 - 0.35 * Math.Abs(u));
-                ps.Spawn(P.Grit, u * 6, -1, Math.Cos(a) * sp, Math.Sin(a) * sp, R.Range(1, 2.2), R.Pick(new[] { st.light, st.body, st.body, st.shade, st.shade, st.lip }), R.Chance(0.35) ? 2 : 1);
+                ps.Spawn(P.Grit, u * 6, -1, Px.Cos(a) * sp, Px.Sin(a) * sp, R.Range(1, 2.2), R.Pick(new[] { st.light, st.body, st.body, st.shade, st.shade, st.lip }), R.Chance(0.35) ? 2 : 1);
             }
             for (int i = 0; i < 28; i++)
             {
@@ -118,9 +126,9 @@ namespace Pixelfx
         }
 
         double Front(double at) => 7 + (REACH - 7) * Ease.OutCubic(Clamp((at - 0.015) / WAVE));
-        static double Heat(double at) => Math.Pow(Clamp(1 - at / 0.8), 1.4);
-        static double CrestHeight(double u) => 6 + 28 * Math.Pow(1 - u, 0.75);
-        static double CrestWidth(double u) => 1.5 + 5 * Math.Pow(1 - u, 0.9);
+        static double Heat(double at) => Px.Pow(Clamp(1 - at / 0.8), 1.4);
+        static double CrestHeight(double u) => 6 + 28 * Px.Pow(1 - u, 0.75);
+        static double CrestWidth(double u) => 1.5 + 5 * Px.Pow(1 - u, 0.9);
 
         void Crater(Painter p, double hot, double k)
         {
@@ -144,8 +152,8 @@ namespace Pixelfx
         {
             double u = Clamp((t - 0.015) / (WAVE + 0.1));
             if (t < 0.015 || u >= 0.9) return;
-            Sim.Band(p, 0, 0.5, Front(t) + 1, 0.16, Math.Max(1, 4 * Math.Pow(1 - u, 0.8)), u < 0.55 ? 1.1 : (0.9 - u) / 0.35,
-                u < 0.35 ? new[] { C[3], C[4], C[5], C[6] } : new[] { st.body, st.light, C[4], C[5] }, g => Math.Sin(g) < 0 == back, t < 0.09);
+            Sim.Band(p, 0, 0.5, Front(t) + 1, 0.16, Math.Max(1, 4 * Px.Pow(1 - u, 0.8)), u < 0.55 ? 1.1 : (0.9 - u) / 0.35,
+                u < 0.35 ? new[] { C[3], C[4], C[5], C[6] } : new[] { st.body, st.light, C[4], C[5] }, g => Px.Sin(g) < 0 == back, t < 0.09);
         }
 
         void Fronts(Painter p)
@@ -209,7 +217,7 @@ namespace Pixelfx
             {
                 double k = 1 - (t - 0.1) / e.life;
                 if (t < 0.1 || k <= 0) continue;
-                double f = 0.6 + 0.4 * Math.Sin(t * 23 + e.ph);
+                double f = 0.6 + 0.4 * Px.Sin(t * 23 + e.ph);
                 p.Px(e.x, e.y, k * f > 0.55 ? C[5] : k * f > 0.25 ? C[4] : C[3]);
                 p.Glow(e.x, e.y, 4, C[4], 0.35 * k * f);
             }

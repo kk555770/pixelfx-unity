@@ -1,7 +1,7 @@
 {
   "name": "com.pixelfx.unity",
   "displayName": "pixelfx (C#)",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "unity": "6000.0",
   "description": "A C# port of the pixelfx pixel art effects library, drawn live frame by frame and checked against the JavaScript original.",
   "license": "MIT"

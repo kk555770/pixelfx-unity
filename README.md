@@ -37,7 +37,7 @@ A local checkout works too: `"com.pixelfx.unity": "file:../../../pixelfx-unity"`
 - `Runtime/Fx/<category>` ports `src/fx/<category>`, one file per effect. Each effect declares a public static
   `Module`, and `Effects.All` finds it, so a new port is just a new file.
 - `Editor/Parity.cs` compares a module's frames with reference hashes. Games use it for their own effects too.
-- `Tests/Editor` runs the parity check on every ported effect.
+- `Tests/Editor` runs the parity check on every ported effect and act.
 
 ## Parity
 
@@ -54,3 +54,23 @@ node Tools/parity.mjs --pixelfx ../pixelfx
 ```sh
 node Tools/parity.mjs --frames <temp>/pixelfx-parity hit-spark
 ```
+
+`Tests/Editor/ActParity.json` does the same for every act: the timing (windup, hits with their freeze, shake and push,
+recovery, poses) as one line of text, and the hash of each frame of the act played at 30 fps on transparency, marked
+while it shakes or freezes. Each act runs in a node process of its own, because the rig caches poses for the life of a
+process; the C# side empties that cache with `Rig.ClearCache()` before each act.
+
+```sh
+node Tools/parity.mjs --acts
+node Tools/parity.mjs --act-frames <temp>/pixelfx-parity sword-slash
+```
+
+To iterate without Unity, `Tools/ParityCli~` builds the runtime, `Editor/ParityRun.cs` and a console runner with the
+.NET SDK (Unity ignores folders ending in `~`). Run it from inside the package:
+
+```sh
+dotnet run --project Tools/ParityCli~ -c Release -- melee
+dotnet run --project Tools/ParityCli~ -c Release -- --acts melee
+```
+
+`CORE.md` maps every export of pixelfx's `src/core` to its C# counterpart.

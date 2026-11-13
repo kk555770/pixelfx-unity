@@ -62,7 +62,7 @@ namespace Pixelfx
 
         public static void Sparkle(Painter p, double x, double y, double arm, uint c, uint tip, double k = 0.6)
         {
-            int n = RoundInt(arm);
+            double n = Round(arm);
             if (n < 1) return;
             double X = Math.Floor(x), Y = Math.Floor(y);
             for (int d = 1; d <= n; d++)
@@ -88,7 +88,7 @@ namespace Pixelfx
             int n = r.Length;
             for (int i = 0; i < 8; i++)
             {
-                double an = i * Math.PI / 4, len = i % 4 == 0 ? l : i % 2 == 0 ? l * 0.6 : l * 0.3, ca = Math.Cos(an), sa = Math.Sin(an);
+                double an = i * Math.PI / 4, len = i % 4 == 0 ? l : i % 2 == 0 ? l * 0.6 : l * 0.3, ca = Px.Cos(an), sa = Px.Sin(an);
                 for (double d = 0; d <= len; d += 0.5)
                 {
                     double u = d / len;
@@ -103,7 +103,7 @@ namespace Pixelfx
             int n = ramp.Length;
             for (int j = 0, m = (int)Math.Ceiling(r * TAU * 1.2); j < m; j++)
             {
-                double ang = (double)j / m * TAU, ca = Math.Cos(ang), sa = Math.Sin(ang);
+                double ang = (double)j / m * TAU, ca = Px.Cos(ang), sa = Px.Sin(ang);
                 if (keep != null && !keep(ang)) continue;
                 for (double o = th; o >= 0; o -= 0.5)
                 {
@@ -111,6 +111,50 @@ namespace Pixelfx
                     uint c = u < 0.15 ? (hot ? WHITE : ramp[n - 1]) : u < 0.4 ? ramp[n - 2] : u < 0.7 ? ramp[n - 3] : ramp[n - 4];
                     p.Dot(cx + ca * (r - o), cy + sa * (r - o) * sy, c, k * (u < 0.4 ? 1.2 : 1.15 - u));
                 }
+            }
+        }
+
+        /// <summary>
+        /// A faceted crystal spike standing on (x, baseY), height h, base width w, leaning lean px at the tip, shaded
+        /// in ramp (dark to bright, 6+ steps): a lit ridge, a bright left face, a darker right face, a dark rim.
+        /// a: alpha; white: flash it white; glint: 0..1 height of a sweeping highlight, or -1.
+        /// </summary>
+        public static void Crystal(Painter p, double x, double baseY, double h, double w, double lean, uint[] ramp, double a = 1, bool white = false, double glint = -1)
+        {
+            if (h < 1.5) return;
+            uint[] r = ramp;
+            int n = r.Length;
+            uint C(int i) => r[Math.Max(0, n - 1 - i)];
+            double top = baseY - h, ridge0 = x - w * 0.14;
+            bool Inside(double px, double py)
+            {
+                double u = (baseY - (py + 0.5)) / h;
+                return u >= 0 && u <= 1 && Math.Abs(px + 0.5 - (x + lean * u)) <= w / 2 * (1 - u) + 0.35;
+            }
+            for (double py = Math.Floor(top) - 1; py < Math.Ceiling(baseY); py++)
+            for (double px = Math.Floor(x - w / 2 - Math.Abs(lean) - 2); px <= Math.Ceiling(x + w / 2 + Math.Abs(lean) + 2); px++)
+            {
+                if (!Inside(px, py))
+                {
+                    if (Inside(px - 1, py) || Inside(px + 1, py) || Inside(px, py + 1) || (Inside(px, py - 1) && py < baseY - 1)) p.Dot(px, py, r[0], a);
+                    continue;
+                }
+                if (white)
+                {
+                    p.Dot(px, py, WHITE, a);
+                    continue;
+                }
+                double u = (baseY - (py + 0.5)) / h, rx = ridge0 + (x + lean - ridge0) * u, c = x + lean * u, hw = w / 2 * (1 - u) + 0.35, fx = px + 0.5;
+                uint col = u > 0.9 ? WHITE : Math.Abs(fx - rx) < 0.55 ? C(1)
+                    : fx < rx ? (fx - (c - hw) < 1 ? C(1) : (fx - (c - hw)) / Math.Max(1, rx - (c - hw)) > 0.55 ? C(2) : C(3))
+                    : c + hw - fx < 1.2 ? C(Math.Min(n - 2, 6)) : (fx - rx) / Math.Max(1, c + hw - rx) > 0.5 ? C(5) : C(4);
+                if (glint >= 0 && fx <= rx + 0.6)
+                {
+                    double g = Math.Abs(u - glint);
+                    if (g < 0.05) col = WHITE;
+                    else if (g < 0.1) col = C(1);
+                }
+                p.Dot(px, py, col, a);
             }
         }
     }
@@ -196,7 +240,7 @@ namespace Pixelfx
                 {
                     case P.Fire:
                         p.vy -= 95 * dt;
-                        p.vx += Math.Sin(t * 17 + p.seed) * 30 * dt;
+                        p.vx += Px.Sin(t * 17 + p.seed) * 30 * dt;
                         p.vx -= p.vx * 5 * dt;
                         p.vy -= p.vy * 3.2 * dt;
                         break;
@@ -264,11 +308,11 @@ namespace Pixelfx
                     case P.Flake:
                         p.vx -= p.vx * 2.2 * dt;
                         p.vy -= p.vy * 2.2 * dt - 35 * dt;
-                        p.x += Math.Sin(T * 2.5 + p.seed) * 7 * dt;
+                        p.x += Px.Sin(T * 2.5 + p.seed) * 7 * dt;
                         break;
                     case P.Ember:
-                        p.vy += (-30 + Math.Sin(t * 3 + p.seed) * 20) * dt;
-                        p.vx += Math.Cos(t * 2.3 + p.seed) * 45 * dt;
+                        p.vy += (-30 + Px.Sin(t * 3 + p.seed) * 20) * dt;
+                        p.vx += Px.Cos(t * 2.3 + p.seed) * 45 * dt;
                         p.vx -= p.vx * 1.6 * dt;
                         p.vy -= p.vy * 1.6 * dt;
                         break;
@@ -276,7 +320,7 @@ namespace Pixelfx
                     {
                         bool big = (p.flag & PF.Big) != 0;
                         p.vy -= (big ? 23 : 16) * dt;
-                        p.vx += Math.Sin(t * 1.3 + p.seed) * 8 * dt;
+                        p.vx += Px.Sin(t * 1.3 + p.seed) * 8 * dt;
                         p.vx -= p.vx * 1.6 * dt;
                         p.vy -= p.vy * 1.2 * dt;
                         break;
@@ -356,12 +400,12 @@ namespace Pixelfx
                 case P.Vapour:
                 {
                     double r = q.size * (0.6 + (1 - k) * 0.9);
-                    p.Disc(x, y, r, q.col, Math.Pow(k, 1.3) * 0.45);
+                    p.Disc(x, y, r, q.col, Px.Pow(k, 1.3) * 0.45);
                     if (haze != 0) p.Glow(x, y, r * 1.8, haze, 0.16 * k);
                     break;
                 }
                 case P.Dust:
-                    p.Disc(x, y, q.size * (0.6 + (1 - k) * 0.9), q.col, Math.Pow(k, 1.3) * 0.7);
+                    p.Disc(x, y, q.size * (0.6 + (1 - k) * 0.9), q.col, Px.Pow(k, 1.3) * 0.7);
                     break;
                 case P.Smoke:
                 {
@@ -379,7 +423,7 @@ namespace Pixelfx
                 {
                     uint[] f = Sim.FIRE_RAMP;
                     int n = f.Length;
-                    double age = 1 - k, heat = Math.Min(0.999, Math.Pow(age, 0.62) + q.seed % 1 * 0.1);
+                    double age = 1 - k, heat = Math.Min(0.999, Px.Pow(age, 0.62) + q.seed % 1 * 0.1);
                     int idx = Math.Min(n - 2, (int)Math.Floor(heat * (n - 1)));
                     double r = q.size * (0.55 + 0.45 * Math.Min(1, age * 7)) * (1 - age * 0.55);
                     uint c = f[idx];
@@ -396,7 +440,7 @@ namespace Pixelfx
                 }
                 case P.Brand:
                     p.Circle(x, y, 1.6, Sim.Hot[3]);
-                    p.Px(x, y, Math.Sin(T * 40 + q.seed) > 0 ? Sim.Hot[0] : Sim.Hot[1]);
+                    p.Px(x, y, Px.Sin(T * 40 + q.seed) > 0 ? Sim.Hot[0] : Sim.Hot[1]);
                     p.Px(x + 1, y, Sim.Hot[1]);
                     p.Glow(x, y, 7, Sim.Hot[2], 0.45);
                     break;
@@ -415,7 +459,7 @@ namespace Pixelfx
                 case P.Ember:
                 {
                     uint c = k > 0.6 ? sparks[0] : k > 0.3 ? sparks[1] : sparks[2];
-                    if (k < 0.25 && Math.Sin(T * 40 + q.seed) < 0) break;
+                    if (k < 0.25 && Px.Sin(T * 40 + q.seed) < 0) break;
                     p.Px(x, y, c);
                     if (q.size > 1.5) p.Px(x, y + 1, sparks[sparks.Length - 1]);
                     p.Glow(x, y, 3 + q.size, c, 0.35 * k);
@@ -423,7 +467,7 @@ namespace Pixelfx
                 }
                 default:
                 {
-                    double tw = 0.6 + 0.4 * Math.Sin(T * (8 + q.seed % 5) + q.seed);
+                    double tw = 0.6 + 0.4 * Px.Sin(T * (8 + q.seed % 5) + q.seed);
                     if (q.size < 1)
                     {
                         if (tw * k > 0.25) p.Px(x, y, tw > 0.8 ? WHITE : q.col);
@@ -501,7 +545,7 @@ namespace Pixelfx
             {
                 Sim.Shift(p, emitter, b.bornX, b.bornY);
                 double k = b.life / b.max;
-                p.Px(b.x, b.y, k > 0.4 ? (Math.Sin(b.life * 31 + b.x) > 0 ? Sim.Hot[1] : Sim.Hot[2]) : Sim.Hot[3]);
+                p.Px(b.x, b.y, k > 0.4 ? (Px.Sin(b.life * 31 + b.x) > 0 ? Sim.Hot[1] : Sim.Hot[2]) : Sim.Hot[3]);
                 p.Glow(b.x, b.y, 6 + 5 * k * b.power, Sim.Hot[2], 0.3 * k * b.power);
             }
             p.Shift(0, 0);
@@ -581,7 +625,7 @@ namespace Pixelfx
             foreach (Bit b in List)
             {
                 Sim.Shift(p, emitter, b.bornX, b.bornY);
-                double a = Math.Min(1, b.life / 0.4), ca = Math.Cos(b.a), sa = Math.Sin(b.a);
+                double a = Math.Min(1, b.life / 0.4), ca = Px.Cos(b.a), sa = Px.Sin(b.a);
                 if (b.kind == B.Shard)
                 {
                     for (double d = -b.s / 2; d <= b.s / 2; d += 0.5) p.Dot(b.x + ca * d, b.y + sa * d, d > b.s / 2 - 0.6 ? WHITE : b.c, a);

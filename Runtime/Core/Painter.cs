@@ -25,12 +25,31 @@ namespace Pixelfx
             Array.Clear(Light, 0, Light.Length);
         }
 
-        public void Composite(byte[] rgba, double lightK = 1)
+        /// <summary>Color plus light into RGBA bytes, on transparency: over nothing, light becomes color with alpha.</summary>
+        public void Composite(byte[] rgba, double lightK = 1) => Composite(rgba, null, null, lightK);
+
+        /// <summary>Color over a background (one color per pixel, W x H) plus light into RGBA bytes.</summary>
+        public void Composite(byte[] rgba, uint[] bg, double lightK = 1) => Composite(rgba, bg, null, lightK);
+
+        /// <summary>Color over a flat background color plus light into RGBA bytes.</summary>
+        public void Composite(byte[] rgba, uint bg, double lightK = 1) => Composite(rgba, null, bg, lightK);
+
+        void Composite(byte[] rgba, uint[] bgs, uint? flat, double lightK)
         {
+            bool none = bgs == null && flat == null;
             for (int i = 0, n = W * H; i < n; i++)
             {
                 uint c = Color[i], l = Light[i] & 0xffffff, ca = c >> 24;
                 double r = c & 255, g = (c >> 8) & 255, b = (c >> 16) & 255, a = ca;
+                if (ca != 255 && !none)
+                {
+                    uint k = flat ?? bgs[i];
+                    double f = ca / 255.0;
+                    r = (c & 255) * f + (k & 255) * (1 - f);
+                    g = ((c >> 8) & 255) * f + ((k >> 8) & 255) * (1 - f);
+                    b = ((c >> 16) & 255) * f + ((k >> 16) & 255) * (1 - f);
+                    a = 255;
+                }
                 if (l != 0)
                 {
                     double lr = (l & 255) * lightK, lg = ((l >> 8) & 255) * lightK, lb = ((l >> 16) & 255) * lightK;
@@ -99,7 +118,7 @@ namespace Pixelfx
         }
     }
 
-    public sealed class Painter
+    public sealed partial class Painter
     {
         public sealed class Out
         {
@@ -135,6 +154,7 @@ namespace Pixelfx
             tx = ty = placedX = placedY = sn = 0;
             fx = cs = 1;
             Fade = LightK = 1;
+            Layer = Layer.Front;
             return this;
         }
 
@@ -143,8 +163,8 @@ namespace Pixelfx
             tx = placedX = x;
             ty = placedY = y;
             fx = flip ? -1 : 1;
-            cs = Math.Cos(angle);
-            sn = Math.Sin(angle);
+            cs = Pixelfx.Px.Cos(angle);
+            sn = Pixelfx.Px.Sin(angle);
             return this;
         }
 
@@ -169,11 +189,29 @@ namespace Pixelfx
             return -dx * sn + dy * cs;
         }
 
-        public int CellX(double x, double y) => (int)Math.Floor(ToX(Math.Floor(x) + 0.5, Math.Floor(y) + 0.5));
-        public int CellY(double x, double y) => (int)Math.Floor(ToY(Math.Floor(x) + 0.5, Math.Floor(y) + 0.5));
+        public int CellX(double x, double y) => ScreenInt(Math.Floor(ToX(Math.Floor(x) + 0.5, Math.Floor(y) + 0.5)));
+        public int CellY(double x, double y) => ScreenInt(Math.Floor(ToY(Math.Floor(x) + 0.5, Math.Floor(y) + 0.5)));
+
+        // A whole screen coordinate as int. JS keeps NaN, ±Infinity and huge values as doubles, and every write
+        // there falls outside the frame; int.MinValue lands outside it too (a plain cast gives 0 on ARM).
+        static int ScreenInt(double v) => v >= int.MinValue && v <= int.MaxValue ? (int)v : int.MinValue;
+
+        // Math.min(255, v) | 0 for v >= 0 or NaN: NaN gives 0.
+        static uint Channel(double v) => v >= 0 ? (uint)v : 0;
+
+        // a clipped painter (ClipTo) drops every pixel whose centre falls outside its local rectangle 0..clipW, 0..clipH
+        double clipW = double.NaN, clipH;
+
+        bool Outside(int sx, int sy)
+        {
+            if (double.IsNaN(clipW)) return false;
+            double lx = FromX(sx + 0.5, sy + 0.5), ly = FromY(sx + 0.5, sy + 0.5);
+            return !(lx >= 0 && ly >= 0 && lx < clipW && ly < clipH);
+        }
 
         public void Put(int sx, int sy, uint c, double a = 1)
         {
+            if (Outside(sx, sy)) return;
             if (c == 0) return;
             a *= Fade;
             if (a < 1 && a <= Bayer[((sy & 3) << 2) | (sx & 3)]) return;
@@ -184,20 +222,22 @@ namespace Pixelfx
 
         public void Add(int sx, int sy, uint c, double k = 1)
         {
+            if (Outside(sx, sy)) return;
             k *= Fade * LightK;
             if (k <= 0.004) return;
             int x = sx - ox, y = sy - oy;
             if (x < 0 || y < 0 || x >= w || y >= h) return;
             int i = y * w + x;
             uint d = L[i];
-            uint r = (uint)(int)Math.Min(255, (d & 255) + (c & 255) * k);
-            uint g = (uint)(int)Math.Min(255, ((d >> 8) & 255) + ((c >> 8) & 255) * k);
-            uint b = (uint)(int)Math.Min(255, ((d >> 16) & 255) + ((c >> 16) & 255) * k);
+            uint r = Channel(Math.Min(255, (d & 255) + (c & 255) * k));
+            uint g = Channel(Math.Min(255, ((d >> 8) & 255) + ((c >> 8) & 255) * k));
+            uint b = Channel(Math.Min(255, ((d >> 16) & 255) + ((c >> 16) & 255) * k));
             L[i] = 0xff000000 | (b << 16) | (g << 8) | r;
         }
 
         public void BlendPx(int sx, int sy, uint c, double a)
         {
+            if (Outside(sx, sy)) return;
             a *= Fade;
             if (c == 0 || a <= 0.004) return;
             int x = sx - ox, y = sy - oy;
@@ -226,7 +266,7 @@ namespace Pixelfx
             {
                 double dx = x - cx, dy = y - cy, d2 = dx * dx + dy * dy;
                 if (d2 > r * r) return;
-                double d = Math.Sqrt(d2) / r, ang = Math.Atan2(dy, dx);
+                double d = Math.Sqrt(d2) / r, ang = Atan2(dy, dx);
                 BlendPx(sx, sy, c(d, ang), a(d, ang));
             });
         }
@@ -257,13 +297,14 @@ namespace Pixelfx
                 if (sy < ay) ay = sy;
                 if (sy > by) by = sy;
             }
-            int sx0 = (int)Math.Max(Math.Floor(ax), ox), sx1 = (int)Math.Min(Math.Ceiling(bx), ox + w - 1);
-            int sy0 = (int)Math.Max(Math.Floor(ay), oy), sy1 = (int)Math.Min(Math.Ceiling(by), oy + h - 1);
-            for (int sy = sy0; sy <= sy1; sy++)
-            for (int sx = sx0; sx <= sx1; sx++)
+            // bounds stay doubles as in JS: a NaN box visits nothing
+            double sx0 = Math.Max(Math.Floor(ax), ox), sx1 = Math.Min(Math.Ceiling(bx), ox + w - 1);
+            double sy0 = Math.Max(Math.Floor(ay), oy), sy1 = Math.Min(Math.Ceiling(by), oy + h - 1);
+            for (double sy = sy0; sy <= sy1; sy++)
+            for (double sx = sx0; sx <= sx1; sx++)
             {
                 double cx = sx + 0.5, cy = sy + 0.5;
-                fn(FromX(cx, cy), FromY(cx, cy), sx, sy);
+                fn(FromX(cx, cy), FromY(cx, cy), (int)sx, (int)sy);
             }
         }
 
@@ -315,12 +356,19 @@ namespace Pixelfx
             }
         }
 
-        public void Polyline(double[][] pts, uint c, double a = 1)
+        public void Polyline(double[][] pts, uint c, double a = 1) => Polyline(pts, c, null, a, null);
+        public void Polyline(double[][] pts, uint c, Func<double, double> a) => Polyline(pts, c, null, 1, a);
+        public void Polyline(double[][] pts, Func<double, uint> c, double a = 1) => Polyline(pts, 0, c, a, null);
+        public void Polyline(double[][] pts, Func<double, uint> c, Func<double, double> a) => Polyline(pts, 0, c, 1, a);
+
+        void Polyline(double[][] pts, uint c, Func<double, uint> fc, double a, Func<double, double> fa)
         {
-            for (int i = 1; i < pts.Length; i++) Line(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], c, a);
+            for (int i = 1; i < pts.Length; i++) Line(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], c, fc, a, fa);
         }
 
         public void Beam(double x0, double y0, double x1, double y1, double width, uint c, double a = 1) => Beam(x0, y0, x1, y1, width, (u, v) => c, (u, v) => a);
+        public void Beam(double x0, double y0, double x1, double y1, double width, uint c, Func<double, double, double> a) => Beam(x0, y0, x1, y1, width, (u, v) => c, a);
+        public void Beam(double x0, double y0, double x1, double y1, double width, Func<double, double, uint> c, double a = 1) => Beam(x0, y0, x1, y1, width, c, (u, v) => a);
 
         public void Beam(double x0, double y0, double x1, double y1, double width, Func<double, double, uint> c, Func<double, double, double> a)
         {
@@ -353,7 +401,7 @@ namespace Pixelfx
             {
                 double dx = x - cx, dy = y - cy, d2 = dx * dx + dy * dy;
                 if (d2 > r * r) return 0;
-                double d = Math.Sqrt(d2) / r, ang = Math.Atan2(dy, dx);
+                double d = Math.Sqrt(d2) / r, ang = Atan2(dy, dx);
                 o.c = c(d, ang);
                 o.a = a(d, ang);
                 return 0;
@@ -371,7 +419,7 @@ namespace Pixelfx
             {
                 double dx = (x - cx) / rx, dy = (y - cy) / ry, d2 = dx * dx + dy * dy;
                 if (d2 > 1) return 0;
-                double d = Math.Sqrt(d2), ang = Math.Atan2(dy, dx);
+                double d = Math.Sqrt(d2), ang = Atan2(dy, dx);
                 o.c = c(d, ang);
                 o.a = a(d, ang);
                 return 0;
@@ -389,13 +437,21 @@ namespace Pixelfx
             {
                 double dx = x - cx, dy = y - cy, d2 = dx * dx + dy * dy;
                 if (d2 > r * r || d2 < r0 * r0) return 0;
-                double span = r - r0;
-                double v = wd > 0 ? (Math.Sqrt(d2) - r0) / (span != 0 ? span : 1) : 1, ang = Math.Atan2(dy, dx);
+                double span = r - r0; // (r - r0 || 1): 0 and NaN fall back to 1
+                double v = wd > 0 ? (Math.Sqrt(d2) - r0) / (span != 0 && !double.IsNaN(span) ? span : 1) : 1, ang = Atan2(dy, dx);
                 o.c = c(v, ang);
                 o.a = a(v, ang);
                 return 0;
             });
         }
+
+        public void Arc(double cx, double cy, double r, double wd, double a0, double a1, uint c, double a = 1) => Arc(cx, cy, r, u => wd, a0, a1, (u, v) => c, (u, v) => a);
+        public void Arc(double cx, double cy, double r, double wd, double a0, double a1, uint c, Func<double, double, double> a) => Arc(cx, cy, r, u => wd, a0, a1, (u, v) => c, a);
+        public void Arc(double cx, double cy, double r, double wd, double a0, double a1, Func<double, double, uint> c, double a = 1) => Arc(cx, cy, r, u => wd, a0, a1, c, (u, v) => a);
+        public void Arc(double cx, double cy, double r, double wd, double a0, double a1, Func<double, double, uint> c, Func<double, double, double> a) => Arc(cx, cy, r, u => wd, a0, a1, c, a);
+        public void Arc(double cx, double cy, double r, Func<double, double> wd, double a0, double a1, uint c, double a = 1) => Arc(cx, cy, r, wd, a0, a1, (u, v) => c, (u, v) => a);
+        public void Arc(double cx, double cy, double r, Func<double, double> wd, double a0, double a1, uint c, Func<double, double, double> a) => Arc(cx, cy, r, wd, a0, a1, (u, v) => c, a);
+        public void Arc(double cx, double cy, double r, Func<double, double> wd, double a0, double a1, Func<double, double, uint> c, double a = 1) => Arc(cx, cy, r, wd, a0, a1, c, (u, v) => a);
 
         public void Arc(double cx, double cy, double r, Func<double, double> wd, double a0, double a1, Func<double, double, uint> c, Func<double, double, double> a)
         {
@@ -404,7 +460,7 @@ namespace Pixelfx
             {
                 double dx = x - cx, dy = y - cy, d = Math.Sqrt(dx * dx + dy * dy);
                 if (d > r) return 0;
-                double ang = Math.Atan2(dy, dx) - a0;
+                double ang = Atan2(dy, dx) - a0;
                 ang -= Math.Floor(ang / (Math.PI * 2)) * Math.PI * 2;
                 if (ang > span) return 0;
                 double u = ang / span, ww = wd(u);
@@ -436,6 +492,7 @@ namespace Pixelfx
         }
 
         public void Poly(double[][] pts, uint c, double a = 1) => Poly(pts, (x, y) => c, (x, y) => a);
+        public void Poly(double[][] pts, uint c, Func<double, double, double> a) => Poly(pts, (x, y) => c, a);
         public void Poly(double[][] pts, Func<double, double, uint> c, double a = 1) => Poly(pts, c, (x, y) => a);
 
         public void Poly(double[][] pts, Func<double, double, uint> c, Func<double, double, double> a)
@@ -466,21 +523,27 @@ namespace Pixelfx
 
         public void Tri(double x0, double y0, double x1, double y1, double x2, double y2, uint c, double a = 1) =>
             Poly(new[] { new[] { x0, y0 }, new[] { x1, y1 }, new[] { x2, y2 } }, c, a);
+        public void Tri(double x0, double y0, double x1, double y1, double x2, double y2, uint c, Func<double, double, double> a) =>
+            Poly(new[] { new[] { x0, y0 }, new[] { x1, y1 }, new[] { x2, y2 } }, c, a);
+        public void Tri(double x0, double y0, double x1, double y1, double x2, double y2, Func<double, double, uint> c, double a = 1) =>
+            Poly(new[] { new[] { x0, y0 }, new[] { x1, y1 }, new[] { x2, y2 } }, c, a);
+        public void Tri(double x0, double y0, double x1, double y1, double x2, double y2, Func<double, double, uint> c, Func<double, double, double> a) =>
+            Poly(new[] { new[] { x0, y0 }, new[] { x1, y1 }, new[] { x2, y2 } }, c, a);
 
         public void Glow(double x, double y, double r, uint c, double k = 0.5)
         {
             if (r < 1 || k <= 0.004) return;
             double cx = ToX(x, y), cy = ToY(x, y);
-            int x0 = (int)Math.Floor(cx - r), x1 = (int)Math.Ceiling(cx + r), y0 = (int)Math.Floor(cy - r), y1 = (int)Math.Ceiling(cy + r);
-            for (int sy = y0; sy <= y1; sy++)
+            double x0 = Math.Floor(cx - r), x1 = Math.Ceiling(cx + r), y0 = Math.Floor(cy - r), y1 = Math.Ceiling(cy + r);
+            for (double sy = y0; sy <= y1; sy++)
             {
                 double dy = (sy + 0.5 - cy) / r;
-                for (int sx = x0; sx <= x1; sx++)
+                for (double sx = x0; sx <= x1; sx++)
                 {
                     double dx = (sx + 0.5 - cx) / r, d = dx * dx + dy * dy;
                     if (d >= 1) continue;
                     double f = 1 - Math.Sqrt(d);
-                    Add(sx, sy, c, f * f * k);
+                    Add(ScreenInt(sx), ScreenInt(sy), c, f * f * k);
                 }
             }
         }
@@ -491,16 +554,16 @@ namespace Pixelfx
             double ax = ToX(x0, y0), ay = ToY(x0, y0), bx = ToX(x1, y1), by = ToY(x1, y1);
             double dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
             if (l2 == 0) l2 = 1e-9;
-            int X0 = (int)Math.Floor(Math.Min(ax, bx) - r), X1 = (int)Math.Ceiling(Math.Max(ax, bx) + r);
-            int Y0 = (int)Math.Floor(Math.Min(ay, by) - r), Y1 = (int)Math.Ceiling(Math.Max(ay, by) + r);
-            for (int sy = Y0; sy <= Y1; sy++)
-            for (int sx = X0; sx <= X1; sx++)
+            double X0 = Math.Floor(Math.Min(ax, bx) - r), X1 = Math.Ceiling(Math.Max(ax, bx) + r);
+            double Y0 = Math.Floor(Math.Min(ay, by) - r), Y1 = Math.Ceiling(Math.Max(ay, by) + r);
+            for (double sy = Y0; sy <= Y1; sy++)
+            for (double sx = X0; sx <= X1; sx++)
             {
                 double px = sx + 0.5, py = sy + 0.5, u = Clamp(((px - ax) * dx + (py - ay) * dy) / l2);
                 double ex = ax + dx * u - px, ey = ay + dy * u - py, d = Math.Sqrt(ex * ex + ey * ey) / r;
                 if (d >= 1) continue;
                 double f = 1 - d;
-                Add(sx, sy, c, f * f * k);
+                Add(ScreenInt(sx), ScreenInt(sy), c, f * f * k);
             }
         }
 
@@ -508,15 +571,19 @@ namespace Pixelfx
         {
             if (r < 1 || k <= 0.004) return;
             double cx = ToX(x, y), cy = ToY(x, y), e = ringR + r;
-            for (int sy = (int)Math.Floor(cy - e); sy <= Math.Ceiling(cy + e); sy++)
-            for (int sx = (int)Math.Floor(cx - e); sx <= Math.Ceiling(cx + e); sx++)
+            for (double sy = Math.Floor(cy - e); sy <= Math.Ceiling(cy + e); sy++)
+            for (double sx = Math.Floor(cx - e); sx <= Math.Ceiling(cx + e); sx++)
             {
                 double d = Math.Abs(Hypot(sx + 0.5 - cx, sy + 0.5 - cy) - ringR) / r;
                 if (d >= 1) continue;
                 double f = 1 - d;
-                Add(sx, sy, c, f * f * k);
+                Add(ScreenInt(sx), ScreenInt(sy), c, f * f * k);
             }
         }
+
+        public void MaskFill(Mask m, double x, double y, uint c, double a = 1) => MaskFill(m, x, y, (mx, my) => c, (mx, my) => a);
+        public void MaskFill(Mask m, double x, double y, uint c, Func<int, int, double> a) => MaskFill(m, x, y, (mx, my) => c, a);
+        public void MaskFill(Mask m, double x, double y, Func<int, int, uint> c, double a = 1) => MaskFill(m, x, y, c, (mx, my) => a);
 
         public void MaskFill(Mask m, double x, double y, Func<int, int, uint> c, Func<int, int, double> a)
         {
@@ -524,6 +591,10 @@ namespace Pixelfx
             for (int mx = 0; mx < m.W; mx++)
                 if (m.Data[my * m.W + mx] != 0) Dot(x + mx, y + my, c(mx, my), a(mx, my));
         }
+
+        public void Outline(Mask m, double x, double y, uint c, double a = 1) => Outline(m, x, y, (mx, my) => c, (mx, my) => a);
+        public void Outline(Mask m, double x, double y, uint c, Func<int, int, double> a) => Outline(m, x, y, (mx, my) => c, a);
+        public void Outline(Mask m, double x, double y, Func<int, int, uint> c, double a = 1) => Outline(m, x, y, c, (mx, my) => a);
 
         public void Outline(Mask m, double x, double y, Func<int, int, uint> c, Func<int, int, double> a)
         {

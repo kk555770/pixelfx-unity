@@ -1,3 +1,5 @@
+// The two-tone spark spray and the light pop are adapted from Sprite Fusion's open-source impact
+// (https://www.spritefusion.com/pixel-art-vfx/impact), MIT License, Copyright (c) 2026 Hugo Duprez.
 using System;
 using static Pixelfx.Px;
 
@@ -13,7 +15,13 @@ namespace Pixelfx
                 ["aim"] = 0.1,
                 ["seed"] = 4.0,
             },
-            (o, e) => new HitSpark(o, e));
+            (o, e) => new HitSpark(o, e))
+        {
+            Title = "Hit spark",
+            Desc = "The everyday hit: a sharp, lopsided cross flare with one long ray along the blow round a white diamond core, then a cone of sparks and hot chips that fall and bounce.",
+            Tags = new[] { "impact", "hit", "spark", "combat", "directional", "one-shot" },
+            Bg = "ground",
+        };
 
         readonly struct Ray
         {
@@ -54,29 +62,29 @@ namespace Pixelfx
             };
 
             lights.Add(X, Y, 38, C[4], 0.35, 0.18);
-            lights.Add(X + Math.Cos(A) * 10, Y + Math.Sin(A) * 10, 22, C[5], 0.45, 0.1);
+            lights.Add(X + Px.Cos(A) * 10, Y + Px.Sin(A) * 10, 22, C[5], 0.45, 0.1);
             lights.Add(X, -2, 26, C[3], 0.22, 0.22);
             for (int i = 0; i < 9; i++)
             {
                 double a = A + R.Range(-0.6, 0.6) - 0.15, v = R.Range(170, 360);
                 double life = R.Range(0.25, 0.45);
-                ps.Spawn(P.Spark, X + 1, Y, Math.Cos(a) * v, Math.Sin(a) * v - 40, life, WHITE, 1, i > 6 ? R.Range(0.01, 0.03) : 0);
+                ps.Spawn(P.Spark, X + 1, Y, Px.Cos(a) * v, Px.Sin(a) * v - 40, life, WHITE, 1, i > 6 ? R.Range(0.01, 0.03) : 0);
             }
             uint[] chips = { C[5], C[4], C[4], C[3] };
             for (int i = 0; i < 6; i++)
             {
                 double a = A + R.Range(-1.1, 0.5) - 0.3, v = R.Range(70, 170);
-                double vy = Math.Sin(a) * v - R.Range(30, 80), life = R.Range(0.35, 0.45);
-                ps.Spawn(P.Grit, X + 1, Y, Math.Cos(a) * v, vy, life, R.Pick(chips), 1);
+                double vy = Px.Sin(a) * v - R.Range(30, 80), life = R.Range(0.35, 0.45);
+                ps.Spawn(P.Grit, X + 1, Y, Px.Cos(a) * v, vy, life, R.Pick(chips), 1);
             }
         }
 
         static void DrawRay(Painter p, double x, double y, double a, double L, double w, uint[] C, double from = 0)
         {
-            double c = Math.Cos(a), s = Math.Sin(a);
+            double c = Px.Cos(a), s = Px.Sin(a);
             for (double d = from * L; d <= L; d += 0.5)
             {
-                double u = d / L, hw = w * Math.Pow(1 - u, 1.6);
+                double u = d / L, hw = w * Px.Pow(1 - u, 1.6);
                 uint col = u < 0.3 ? WHITE : u < 0.62 ? C[5] : u < 0.88 ? C[4] : C[3];
                 p.Px(x + c * d, y + s * d, col);
                 if (hw > 0.45)
@@ -122,12 +130,12 @@ namespace Pixelfx
                 Ray r = rays[0];
                 DrawRay(p, X, Y, r.A, r.L * 1.3, 0.6, new[] { C[0], C[1], C[2], C[3], C[3], C[4] }, 0.4);
             }
-            double pop = Math.Exp(-t / 0.045);
+            double pop = Exp(-t / 0.045);
             if (pop > 0.02)
             {
                 p.Glow(X, Y, 22, C[4], 0.3 * pop);
                 p.Glow(X, Y, 7, WHITE, 0.15 * pop);
-                p.GlowLine(X, Y, X + Math.Cos(A) * 26, Y + Math.Sin(A) * 26, 4, C[5], 0.25 * pop);
+                p.GlowLine(X, Y, X + Px.Cos(A) * 26, Y + Px.Sin(A) * 26, 4, C[5], 0.25 * pop);
             }
             lights.Draw(p);
         }

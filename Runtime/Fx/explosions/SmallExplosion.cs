@@ -1,10 +1,12 @@
+// The particle recipe (fire puffs that cool into smoke, sparks, embers, burning brands, grit, rocks, scorch) is
+// adapted from Sprite Fusion's open-source explosion (https://www.spritefusion.com/pixel-art-vfx/explosion),
+// MIT License, Copyright (c) 2026 Hugo Duprez.
 using System;
 using System.Collections.Generic;
 using static Pixelfx.Px;
 
 namespace Pixelfx
 {
-    // Adapted by pixelfx from Sprite Fusion's open-source explosion, MIT, Hugo Duprez.
     public sealed class SmallExplosion : Effect
     {
         const double Duration = 5.4;
@@ -17,7 +19,13 @@ namespace Pixelfx
                 ["size"] = 1.0,
                 ["seed"] = 7.0,
             },
-            (o, e) => new SmallExplosion(o, e));
+            (o, e) => new SmallExplosion(o, e))
+        {
+            Title = "Explosion",
+            Desc = "A ground blast: a white flash and shock rings, fire that cools into a rolling smoke column, sparks, burning brands that land and keep burning, tumbling rocks and a glowing scorch.",
+            Tags = new[] { "explosion", "fire", "smoke", "debris", "impact", "one-shot" },
+            Bg = "ground",
+        };
 
         static readonly uint SOOT = Hex("#0d0a12"), SOOT2 = Hex("#17121d"), OUTLINE = Hex("#1a1422"), WARM = Rgb(255, 176, 96);
 
@@ -34,7 +42,7 @@ namespace Pixelfx
 
         readonly uint[] F;
         readonly double S, RAD, Y;
-        readonly ImpactsLib.Stone st;
+        readonly ExplosionsLib.Stone st;
         readonly Rng R;
         readonly Emitter emitter;
         readonly Particles ps;
@@ -52,8 +60,8 @@ namespace Pixelfx
             F = Fit(o.Ramp("palette"), 8);
             S = o.Num("size");
             RAD = 18 * S;
-            double POWER = 0.9 * Math.Pow(S, 0.8), EARTH = 1.6;
-            st = new ImpactsLib.Stone(o.Color("stone"));
+            double POWER = 0.9 * Px.Pow(S, 0.8), EARTH = 1.6;
+            st = new ExplosionsLib.Stone(o.Color("stone"));
             R = new Rng(o.Seed);
             Func<double, double> floor = x => 0;
             ps = new Particles(rng: R, ground: floor, sparks: new[] { F[6], F[5], F[3], F[2] }, onLand: (x, y) => blazes.Add(x, y - 0.25, R.Range(0.9, 1.5), R.Range(0.55, 0.85)), emitter: e);
@@ -71,34 +79,34 @@ namespace Pixelfx
             for (int i = 0; i < RoundInt(28 * POWER); i++)
             {
                 double a = R.Range(0, TAU), d = R.Range(0, RAD * 0.55), sp = R.Range(40, 210) * POWER;
-                ps.Spawn(P.Fire, Math.Cos(a) * d, Y + Math.Sin(a) * d, Math.Cos(a) * sp, Math.Sin(a) * sp * 0.8 - 40, R.Range(0.55, 1.15), 0, R.Range(RAD * 0.22, RAD * 0.46), 0, R.Chance(0.45) ? PF.Smokes | PF.Big : PF.None);
+                ps.Spawn(P.Fire, Px.Cos(a) * d, Y + Px.Sin(a) * d, Px.Cos(a) * sp, Px.Sin(a) * sp * 0.8 - 40, R.Range(0.55, 1.15), 0, R.Range(RAD * 0.22, RAD * 0.46), 0, R.Chance(0.45) ? PF.Smokes | PF.Big : PF.None);
             }
             for (int i = 0; i < 5; i++)
             {
                 double a = R.Range(0, TAU), d = R.Range(RAD * 0.1, RAD * 0.5);
-                ps.Spawn(P.Smoke, Math.Cos(a) * d, Y + Math.Sin(a) * d, Math.Cos(a) * 30, Math.Sin(a) * 20 - 30, R.Range(0.9, 1.5), Rgb(34, 29, 38), R.Range(RAD * 0.15, RAD * 0.26), R.Range(0.06, 0.2), PF.Big);
+                ps.Spawn(P.Smoke, Px.Cos(a) * d, Y + Px.Sin(a) * d, Px.Cos(a) * 30, Px.Sin(a) * 20 - 30, R.Range(0.9, 1.5), Rgb(34, 29, 38), R.Range(RAD * 0.15, RAD * 0.26), R.Range(0.06, 0.2), PF.Big);
             }
             for (int i = 0; i < 5; i++) ps.Spawn(P.Fire, R.Range(-RAD * 0.25, RAD * 0.25), Y, R.Range(-12, 12), R.Range(-180, -100), R.Range(0.8, 1.3), 0, R.Range(RAD * 0.24, RAD * 0.36), R.Range(0, 0.1), R.Chance(0.6) ? PF.Smokes | PF.Big : PF.None);
             for (int i = 0; i < RoundInt(10 * POWER); i++)
             {
                 double a = R.Range(0, TAU), d = R.Range(0, RAD * 0.7), sp = R.Range(15, 100);
-                ps.Spawn(P.Smoke, Math.Cos(a) * d, Y + Math.Sin(a) * d, Math.Cos(a) * sp, Math.Sin(a) * sp * 0.6 - 35, R.Range(1.8, 2.8), 0, R.Range(RAD * 0.26, RAD * 0.44), R.Range(0.12, 0.45), PF.Big);
+                ps.Spawn(P.Smoke, Px.Cos(a) * d, Y + Px.Sin(a) * d, Px.Cos(a) * sp, Px.Sin(a) * sp * 0.6 - 35, R.Range(1.8, 2.8), 0, R.Range(RAD * 0.26, RAD * 0.44), R.Range(0.12, 0.45), PF.Big);
             }
             for (int i = 0; i < RoundInt(80 * POWER); i++)
             {
                 double a = R.Range(0, TAU), sp = R.Range(140, 380) * POWER;
-                ps.Spawn(P.Spark, 0, Y, Math.Cos(a) * sp, Math.Sin(a) * sp - 70, R.Range(0.18, 0.6));
+                ps.Spawn(P.Spark, 0, Y, Px.Cos(a) * sp, Px.Sin(a) * sp - 70, R.Range(0.18, 0.6));
             }
             for (int i = 0; i < RoundInt(40 * POWER); i++)
             {
                 double a = R.Range(0, TAU), sp = R.Range(30, 150);
-                ps.Spawn(P.Ember, Math.Cos(a) * RAD * 0.4, Y + Math.Sin(a) * RAD * 0.4, Math.Cos(a) * sp, Math.Sin(a) * sp - 75, R.Range(1.2, 2.6), F[3]);
+                ps.Spawn(P.Ember, Px.Cos(a) * RAD * 0.4, Y + Px.Sin(a) * RAD * 0.4, Px.Cos(a) * sp, Px.Sin(a) * sp - 75, R.Range(1.2, 2.6), F[3]);
             }
             // The JS loop condition draws from the rng on every test, so this one does too.
             for (int i = 0; i < RoundInt(R.Range(9, 14) * Math.Max(0, POWER - 0.55)); i++)
             {
                 double a = -Math.PI / 2 + R.Range(-1.35, 1.35), sp = R.Range(170, 330);
-                ps.Spawn(P.Brand, 0, Y, Math.Cos(a) * sp, Math.Sin(a) * sp, R.Range(0.7, 1.3));
+                ps.Spawn(P.Brand, 0, Y, Px.Cos(a) * sp, Px.Sin(a) * sp, R.Range(0.7, 1.3));
             }
             for (int i = 0; i < RoundInt(RAD * 0.5); i++)
             {
@@ -114,7 +122,7 @@ namespace Pixelfx
             for (int i = 0; i < RoundInt(EARTH * RAD * 4); i++)
             {
                 double u = R.Range(-1, 1), a = -Math.PI / 2 + u * 0.5, sp = R.Range(5, 15) * RAD * (1 - 0.45 * Math.Abs(u));
-                ps.Spawn(P.Grit, u * 0.25 * RAD, -1, Math.Cos(a) * sp, Math.Sin(a) * sp, R.Range(1.2, 2.2), R.Pick(new[] { st.light, st.body, st.body, st.shade }), R.Chance(0.45) ? 2 : 1);
+                ps.Spawn(P.Grit, u * 0.25 * RAD, -1, Px.Cos(a) * sp, Px.Sin(a) * sp, R.Range(1.2, 2.2), R.Pick(new[] { st.light, st.body, st.body, st.shade }), R.Chance(0.45) ? 2 : 1);
             }
             for (int i = 0; i < RoundInt(EARTH * 12); i++)
                 ps.Spawn(P.Smoke, R.Range(-0.3, 0.3) * RAD, -R.Range(2, RAD * 0.6), R.Range(-15, 15), -R.Range(60, 190) * EARTH * 0.6, R.Range(1.6, 2.6), st.dust, R.Range(5, 9) * Math.Sqrt(S) + RAD / 7, R.Range(0, 0.15), PF.Big);
@@ -131,7 +139,7 @@ namespace Pixelfx
             {
                 double dx = (x + 0.5) / rx, dy = (y + 0.5) / ry, d = Math.Sqrt(dx * dx + dy * dy);
                 if (d > 1) continue;
-                double k = Rand(x * 31 + y, 3), T = Math.Pow(Clamp(1 - t / cool), 1.4) * (1.25 - d) - k * 0.35;
+                double k = Rand(x * 31 + y, 3), T = Px.Pow(Clamp(1 - t / cool), 1.4) * (1.25 - d) - k * 0.35;
                 if (T > 0.06)
                 {
                     uint c = heat[Math.Min(heat.Length - 1, Floor((1 - Math.Min(1, T)) * (heat.Length - 1)))];
@@ -144,7 +152,7 @@ namespace Pixelfx
 
         void Rock(Painter p, Bits.Bit b)
         {
-            double r = 0.6 + b.s * 0.75, fade = Math.Min(1, b.life / 0.5), lx = Math.Cos(b.a) * r * 0.4, ly = Math.Sin(b.a) * r * 0.4;
+            double r = 0.6 + b.s * 0.75, fade = Math.Min(1, b.life / 0.5), lx = Px.Cos(b.a) * r * 0.4, ly = Px.Sin(b.a) * r * 0.4;
             emitter.Shift(p, b.bornX, b.bornY);
             p.Shade(b.x - r - 1, b.y - r - 1, b.x + r + 1, b.y + r + 1, (x, y, o) =>
             {
@@ -163,7 +171,7 @@ namespace Pixelfx
             double k = t / 0.5;
             if (k < 1)
                 Sim.Band(p, 0, 0.5, 80 * S * Ease.OutCubic(k), 0.16, Math.Max(1, (2 + RAD / 9) * (1 - k)), 1.15 - k, new[] { st.body, st.light, F[3], F[6] },
-                    g => far ? Math.Sin(g) < 0 : Math.Sin(g) >= 0);
+                    g => far ? Px.Sin(g) < 0 : Px.Sin(g) >= 0);
         }
 
         public override void Update(double dt)
@@ -179,7 +187,7 @@ namespace Pixelfx
                     for (int i = 0; i < 3; i++)
                     {
                         ps.Spawn(P.Dust, b.x + R.Range(-1.5, 1.5), -0.5, R.Sign() * R.Range(10, 55) * 0.6, -R.Range(2, 22), R.Range(0.3, 0.65), st.dust, R.Range(1.3, 2.8));
-                        ImpactsLib.BornWith(ps, b);
+                        ExplosionsLib.BornWith(ps, b);
                     }
             blazes.Update(dt);
             ps.Update(dt);
@@ -208,7 +216,7 @@ namespace Pixelfx
             }
             foreach (Shock r in rings)
             {
-                double k2 = r.life / r.max, e = 1 - Math.Pow(k2, 3);
+                double k2 = r.life / r.max, e = 1 - Px.Pow(k2, 3);
                 p.Ring(0, Y, r.r0 + (r.r1 - r.r0) * e, Math.Max(1, r.thick * k2 + 0.4), r.c, Math.Min(1, k2 * 1.6));
             }
             lights.Draw(p);

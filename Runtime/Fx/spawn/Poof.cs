@@ -1,3 +1,5 @@
+// The soft, top-lit smoke puffs (a body, a denser core, a lit cap) follow Sprite Fusion's open-source explosion
+// (https://www.spritefusion.com/pixel-art-vfx/explosion), MIT License, Copyright (c) 2026 Hugo Duprez.
 using System;
 using System.Collections.Generic;
 using static Pixelfx.Px;
@@ -15,7 +17,13 @@ namespace Pixelfx
                 ["stars"] = new[] { "#ffd84a", "#fff3a6", "#ffffff" },
                 ["seed"] = 21.0,
             },
-            (o, e) => new Poof(o, e));
+            (o, e) => new Poof(o, e))
+        {
+            Title = "Poof",
+            Desc = "A cartoon death poof: a white pop, a ring of soft round smoke balls bursting out between speed lines, little stars spinning off, and the cloud lifting and thinning away.",
+            Tags = new[] { "spawn", "death", "despawn", "smoke", "poof", "cartoon", "one-shot" },
+            Bg = "ground",
+        };
 
         sealed class Ball
         {
@@ -57,7 +65,7 @@ namespace Pixelfx
             for (int i = 0; i < ring; i++)
             {
                 double a = (double)i / ring * TAU + R.Range(-0.2, 0.2), sp = R.Range(95, 140), r = R.Range(5, 7);
-                var b = new Ball { x = Math.Cos(a) * 3, y = CY + Math.Sin(a) * 3, vx = Math.Cos(a) * sp, vy = Math.Sin(a) * sp * 0.8 - 12, r0 = r * 0.5, r1 = r };
+                var b = new Ball { x = Px.Cos(a) * 3, y = CY + Px.Sin(a) * 3, vx = Px.Cos(a) * sp, vy = Px.Sin(a) * sp * 0.8 - 12, r0 = r * 0.5, r1 = r };
                 b.life = R.Range(0.7, 1.05);
                 b.delay = R.Range(0, 0.03);
                 balls.Add(b);
@@ -65,7 +73,7 @@ namespace Pixelfx
             for (int i = 0; i < 5; i++)
             {
                 double a = R.Range(0, TAU), sp = R.Range(20, 60);
-                var b = new Ball { x = Math.Cos(a) * 2, y = CY + Math.Sin(a) * 2, vx = Math.Cos(a) * sp, vy = Math.Sin(a) * sp - 16, r0 = 4 };
+                var b = new Ball { x = Px.Cos(a) * 2, y = CY + Px.Sin(a) * 2, vx = Px.Cos(a) * sp, vy = Px.Sin(a) * sp - 16, r0 = 4 };
                 b.r1 = R.Range(6.5, 8.5);
                 b.life = R.Range(0.85, 1.2);
                 b.delay = R.Range(0.02, 0.06);
@@ -74,7 +82,7 @@ namespace Pixelfx
             for (int i = 0; i < 7; i++)
             {
                 double a = R.Range(0, TAU), sp = R.Range(170, 240), r = R.Range(2.2, 3.6);
-                var b = new Ball { x = Math.Cos(a) * 4, y = CY + Math.Sin(a) * 4, vx = Math.Cos(a) * sp, vy = Math.Sin(a) * sp * 0.75 - 10, r0 = r * 0.6, r1 = r };
+                var b = new Ball { x = Px.Cos(a) * 4, y = CY + Px.Sin(a) * 4, vx = Px.Cos(a) * sp, vy = Px.Sin(a) * sp * 0.75 - 10, r0 = r * 0.6, r1 = r };
                 b.life = R.Range(0.32, 0.5);
                 b.delay = R.Range(0.01, 0.04);
                 balls.Add(b);
@@ -87,7 +95,7 @@ namespace Pixelfx
             }
             for (int i = 0; i < 12; i++)
             {
-                double a = i / 12.0 * TAU + R.Range(-0.12, 0.12) + 0.13, sa = Math.Sin(a);
+                double a = i / 12.0 * TAU + R.Range(-0.12, 0.12) + 0.13, sa = Px.Sin(a);
                 var l = new SpeedLine { a = a, r1 = Math.Min(R.Range(24, 34), sa > 0.1 ? (-2 - CY) / sa : 99) };
                 l.d = R.Range(0, 0.04);
                 lines.Add(l);
@@ -99,7 +107,7 @@ namespace Pixelfx
                 double life = R.Range(0.55, 0.95);
                 uint col = R.Pick(big);
                 double size = R.Range(1.3, 2.4), delay = R.Range(0.02, 0.1);
-                ps.Spawn(P.Star, Math.Cos(a) * 6, CY + Math.Sin(a) * 6, Math.Cos(a) * sp, Math.Sin(a) * sp - 30, life, col, size, delay);
+                ps.Spawn(P.Star, Px.Cos(a) * 6, CY + Px.Sin(a) * 6, Px.Cos(a) * sp, Px.Sin(a) * sp - 30, life, col, size, delay);
             }
             uint[] small = { WHITE, S[1] };
             for (int i = 0; i < 10; i++)
@@ -107,7 +115,7 @@ namespace Pixelfx
                 double a = R.Range(0, TAU), sp = R.Range(40, 110);
                 double life = R.Range(0.3, 0.6);
                 uint col = R.Pick(small);
-                ps.Spawn(P.Star, Math.Cos(a) * 5, CY + Math.Sin(a) * 5, Math.Cos(a) * sp, Math.Sin(a) * sp - 20, life, col, 0.6, R.Range(0, 0.08));
+                ps.Spawn(P.Star, Px.Cos(a) * 5, CY + Px.Sin(a) * 5, Px.Cos(a) * sp, Px.Sin(a) * sp - 20, life, col, 0.6, R.Range(0, 0.08));
             }
             for (int i = 0; i < 6; i++)
             {
@@ -123,7 +131,7 @@ namespace Pixelfx
         static double Radius(Ball b)
         {
             double age = b.max - b.life, u = age / b.max;
-            double grow = b.r0 + (b.r1 - b.r0) * Ease.OutBack(Clamp(age / 0.22), 2), breathe = 1 + 0.06 * Math.Sin(age * 14 + b.r1);
+            double grow = b.r0 + (b.r1 - b.r0) * Ease.OutBack(Clamp(age / 0.22), 2), breathe = 1 + 0.06 * Px.Sin(age * 14 + b.r1);
             return grow * breathe * (u < 0.62 ? 1 : 1 - Ease.InBack(Clamp((u - 0.62) / 0.38), 1.4));
         }
 
@@ -201,7 +209,7 @@ namespace Pixelfx
             {
                 double u = (t - l.d) / 0.2;
                 if (u <= 0 || u >= 1) continue;
-                double head = 8 + (l.r1 - 8) * Ease.OutExpo(Clamp(u / 0.6)), tail = 8 + (l.r1 - 8) * Ease.InCubic(u), ca = Math.Cos(l.a), sa = Math.Sin(l.a);
+                double head = 8 + (l.r1 - 8) * Ease.OutExpo(Clamp(u / 0.6)), tail = 8 + (l.r1 - 8) * Ease.InCubic(u), ca = Px.Cos(l.a), sa = Px.Sin(l.a);
                 p.Line(ca * tail, CY + sa * tail, ca * head, CY + sa * head, v => v > 0.6 ? WHITE : C[4]);
                 p.GlowLine(ca * tail, CY + sa * tail, ca * head, CY + sa * head, 3, C[4], 0.25);
             }

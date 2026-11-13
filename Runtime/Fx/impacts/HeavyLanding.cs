@@ -1,3 +1,5 @@
+// The rocks, grit and dust are adapted from Sprite Fusion's open-source explosion
+// (https://www.spritefusion.com/pixel-art-vfx/explosion), MIT License, Copyright (c) 2026 Hugo Duprez.
 using System;
 using System.Collections.Generic;
 using static Pixelfx.Px;
@@ -8,6 +10,24 @@ namespace Pixelfx
     {
         const double Duration = 1.6;
 
+        static readonly Pose FALL = new Pose { ["turn"] = 0.8, ["y"] = -46, ["crouch"] = -1, ["lean"] = -1, ["fx"] = -9, ["fy"] = -42, ["bx"] = 10, ["by"] = -42, ["ffx"] = 6, ["ffy"] = -8, ["fbx"] = -3, ["fby"] = -3, ["toeB"] = true, ["ghost"] = 1 };
+        static readonly Pose HERO_ = new Pose { ["y"] = 0, ["crouch"] = 8, ["lean"] = 5, ["fx"] = 13, ["fy"] = -8, ["bx"] = -6, ["by"] = -23, ["ffx"] = 11, ["fbx"] = -10 };
+
+        public static readonly Act Act = new Act
+        {
+            Poses = new[]
+            {
+                new PoseKey(-0.26, FALL),
+                new PoseKey(-0.01, new Pose(FALL) { ["y"] = -6 }, "in"),
+                new PoseKey(0, HERO_, "snap"),
+                new PoseKey(0.55, new Pose(HERO_) { ["crouch"] = 7 }),
+                new PoseKey(0.95, new Pose(HERO_) { ["crouch"] = 5, ["lean"] = 3, ["fx"] = 13, ["fy"] = -15, ["bx"] = -5, ["by"] = -20 }),
+                new PoseKey(1.3, Poses.READY),
+                new PoseKey(1.6, Poses.READY),
+            },
+            Hits = new[] { new HitCue { T = 0.005, Stop = 0.13, Shake = 0.32, Amp = 3 } },
+        };
+
         public static readonly Module Module = new Module("heavy-landing", "pixelfx/fx/impacts/heavy-landing", 176, 80, 88, 60, Duration, false, 30,
             new Options
             {
@@ -15,7 +35,13 @@ namespace Pixelfx
                 ["stone"] = "#4a3f69",
                 ["seed"] = 14.0,
             },
-            (o, e) => new HeavyLanding(o, e));
+            (o, e) => new HeavyLanding(o, e), act: Act, actor: 2)
+        {
+            Title = "Heavy landing",
+            Desc = "A character lands hard: the floor dents and cracks under their feet, two rings of dust roll out along the floor one after the other, and pebbles hop away.",
+            Tags = new[] { "impact", "landing", "ground", "stomp", "dust", "rocks", "actor", "one-shot" },
+            Bg = "ground",
+        };
 
         static readonly uint[] Thud = { WHITE, WHITE, WHITE, WHITE };
 
@@ -76,7 +102,7 @@ namespace Pixelfx
             {
                 int s = R.Sign();
                 double a = -Math.PI / 2 + s * R.Range(0.3, 1.2), v = R.Range(60, 170);
-                front.Spawn(P.Grit, s * R.Range(2, 7), -1, Math.Cos(a) * v, Math.Sin(a) * v, R.Range(0.6, 1.1), R.Pick(new[] { st.light, st.body, st.lip }), R.Chance(0.3) ? 2 : 1);
+                front.Spawn(P.Grit, s * R.Range(2, 7), -1, Px.Cos(a) * v, Px.Sin(a) * v, R.Range(0.6, 1.1), R.Pick(new[] { st.light, st.body, st.lip }), R.Chance(0.3) ? 2 : 1);
             }
         }
 
@@ -85,8 +111,8 @@ namespace Pixelfx
             for (int i = 0; i < n; i++)
             {
                 double g = (double)i / n * TAU + R.Range(-0.1, 0.1), v = R.Range(v0, v1);
-                bool far = Math.Sin(g) < 0;
-                (far ? back : front).Spawn(P.Dust, Math.Cos(g) * 4, Math.Sin(g) * 0.7 - 1, Math.Cos(g) * v, Math.Sin(g) * v * 0.16 - R.Range(2, 10), R.Range(0.45, 0.8),
+                bool far = Px.Sin(g) < 0;
+                (far ? back : front).Spawn(P.Dust, Px.Cos(g) * 4, Px.Sin(g) * 0.7 - 1, Px.Cos(g) * v, Px.Sin(g) * v * 0.16 - R.Range(2, 10), R.Range(0.45, 0.8),
                     R.Chance(0.45) ? LIT : DUST, R.Range(size0, size1), delay + R.Range(0, 0.03));
             }
         }
@@ -100,9 +126,9 @@ namespace Pixelfx
                 double g = (t - t0) / dur;
                 if (g <= 0 || g >= 1) continue;
                 double r = 6 + r1 * Ease.OutCubic(g);
-                ImpactsLib.DustRing(p, 0, 0, r, w * (1 + g), k0 * Math.Pow(1 - g, 1.2) * Math.Min(1, g / 0.06), DUST, sy: 0.2, ph: PH + t0 * 10, brk: g * 0.8, half: far ? -1 : 1);
+                ImpactsLib.DustRing(p, 0, 0, r, w * (1 + g), k0 * Px.Pow(1 - g, 1.2) * Math.Min(1, g / 0.06), DUST, sy: 0.2, ph: PH + t0 * 10, brk: g * 0.8, half: far ? -1 : 1);
                 if (edge && g < 0.75)
-                    Sim.Band(p, 0, 0.5, r + 2, 0.2, Math.Max(1, 2.5 * (1 - g)), 1.1 - g / 0.75, new[] { st.body, st.light, LIT, WHITE }, a => Math.Sin(a) < 0 == far);
+                    Sim.Band(p, 0, 0.5, r + 2, 0.2, Math.Max(1, 2.5 * (1 - g)), 1.1 - g / 0.75, new[] { st.body, st.light, LIT, WHITE }, a => Px.Sin(a) < 0 == far);
             }
         }
 
