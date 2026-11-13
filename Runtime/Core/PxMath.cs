@@ -12,47 +12,6 @@ namespace Pixelfx
         static double WithLow(double x, uint lo) => FromWords(HighWord(x), lo);
         static double WithHigh(double x, int hi) => FromWords(hi, LowWord(x));
 
-        // ---- pow
-
-        /// <summary>
-        /// Math.pow as V8 computes it: the C runtime's pow (V8's use_std_math_pow) behind V8's own answers for a NaN exponent,
-        /// 1 or -1 to an infinite power, squares and square roots. On Windows that is ucrtbase's pow, the one .NET's Math.Pow
-        /// calls; Mono's own pow rounds a few inputs in a thousand the other way. Elsewhere the runtime's pow.
-        /// </summary>
-        public static double Pow(double x, double y)
-        {
-            if (double.IsNaN(y)) return double.NaN;
-            if (double.IsInfinity(y) && (x == 1 || x == -1)) return double.NaN;
-            if (y == 2) return x * x;
-            if (y == 0.5) return double.IsInfinity(x) ? double.PositiveInfinity : Math.Sqrt(x + 0);
-            return CrtPow(x, y);
-        }
-
-#if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
-        [System.Runtime.InteropServices.DllImport("ucrtbase.dll", EntryPoint = "pow")]
-        static extern double UcrtPow(double x, double y);
-
-        static bool noUcrt;
-
-        static double CrtPow(double x, double y)
-        {
-            if (!noUcrt)
-            {
-                try
-                {
-                    return UcrtPow(x, y);
-                }
-                catch (Exception e) when (e is DllNotFoundException || e is EntryPointNotFoundException)
-                {
-                    noUcrt = true;
-                }
-            }
-            return Math.Pow(x, y);
-        }
-#else
-        static double CrtPow(double x, double y) => Math.Pow(x, y);
-#endif
-
         // ---- tan
 
         static readonly double[] T =

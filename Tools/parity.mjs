@@ -3,12 +3,15 @@
 //   node Tools/parity.mjs --acts               every act's timing and frames -> Tests/Editor/ActParity.json
 //   node Tools/parity.mjs --frames DIR name... write those effects' frames as PNGs to DIR, to look at a mismatch
 //   node Tools/parity.mjs --act-frames DIR name  write that act's frames as PNGs to DIR
-// --pixelfx PATH points at the pixelfx checkout (default ../pixelfx).
+// --pixelfx PATH points at the pixelfx checkout (default ../pixelfx), with its dev dependencies installed (npm install there).
+// The JS original runs with Math.pow and ** correctly rounded (pow.mjs), as Px.Pow computes them, on any platform.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { register } from "node:module";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { pow } from "./pow.mjs";
 
 const SELF = fileURLToPath(import.meta.url);
 const PACKAGE = fileURLToPath(new URL("..", import.meta.url));
@@ -22,6 +25,18 @@ const framesDir = flag("--frames", null);
 const actFramesDir = flag("--act-frames", null);
 const oneAct = flag("--act", null);
 const wanted = args.filter((a, i) => !a.startsWith("--") && !args[i - 1]?.startsWith("--"));
+
+// The parity data is a Windows x64 reference: node on macOS arm64 computes Math.sin, Math.exp and others differently in
+// places (force-field's frame 18 is one), so the JSON files are written only from Windows x64.
+const writes = !oneAct && !framesDir && !actFramesDir && wanted.length === 0;
+const platform = `${process.platform}-${process.arch}`;
+if (writes && platform !== "win32-x64")
+  throw new Error(`the parity data is a Windows x64 reference and node on ${platform} draws some frames differently: write it from Windows x64`);
+
+Math.pow = pow;
+register("./pow.mjs", import.meta.url, {
+  data: { esbuild: pathToFileURL(join(pixelfx, "node_modules", "esbuild", "lib", "main.js")).href, src: pathToFileURL(join(pixelfx, "src")).href + "/" },
+});
 
 const { allIds, loadEffect, renderFrames } = await import(pathToFileURL(join(pixelfx, "tools", "lib", "fxlib.mjs")).href);
 const { encodePNG } = await import(pathToFileURL(join(pixelfx, "tools", "lib", "png.mjs")).href);

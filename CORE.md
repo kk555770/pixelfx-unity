@@ -68,11 +68,14 @@ are written as `using static Pixelfx.Px;` in the effects, so they read like the 
 
 Effects call the `Px` functions above instead of .NET's `Math`: they are ports of the fdlibm and FreeBSD code V8 runs, and
 .NET's C runtime rounds a share of inputs the other way (1 to 2 % of sines and cosines, a quarter of cube roots), which is
-enough to move a pixel across a dither threshold. V8's `Math.pow` is the C runtime's pow behind V8's own answers for squares,
-square roots, NaN exponents and 1 to an infinite power, so `Px.Pow` does the same: on Windows it calls ucrtbase's pow, the
-one .NET's `Math.Pow` calls too, because Mono's own pow rounds two or three inputs in a thousand the other way. That makes
-the parity data a Windows reference: node's pow and ucrtbase's still differ on about one input in five thousand, and no
-library effect at its defaults reaches one. `Math.Sqrt`, `Floor`, `Ceiling`, `Abs`, `Min` and `Max` are exact in both.
+enough to move a pixel across a dither threshold. `Px.Pow` keeps V8's own answers for squares,
+square roots, NaN exponents and 1 to an infinite power and otherwise rounds x^y correctly, in plain double arithmetic
+(`PxPow.cs`), so it gives the same doubles on every platform. V8's `Math.pow` is the C runtime's pow, and those disagree
+with each other and with the exact answer on about one input in a thousand (macOS's on frost-breath, smoke-bomb and
+wave-crash; Windows' ucrtbase on tractor-beam's frame 4, where x^y lies 0.00014 of an ulp from halfway). So
+`Tools/parity.mjs` runs the JS original with `Math.pow` and `**` replaced by the same correctly rounded pow (`Tools/pow.mjs`).
+The rest of V8's math is its own fdlibm code, but node on macOS arm64 still draws some frames differently (force-field's
+frame 18), so the parity data is written from Windows x64 only. `Math.Sqrt`, `Floor`, `Ceiling`, `Abs`, `Min` and `Max` are exact in both.
 
 ## Differences
 

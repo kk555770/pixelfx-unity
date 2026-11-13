@@ -42,13 +42,14 @@ A local checkout works too: `"com.pixelfx.unity": "file:../../../pixelfx-unity"`
 ## Parity
 
 `Tests/Editor/Parity.json` holds, for every pixelfx library effect at its default options, the canvas size and the
-first 8 bytes of the SHA-256 of each frame's RGBA. Regenerate it from a pixelfx checkout:
+first 8 bytes of the SHA-256 of each frame's RGBA. Regenerate it on Windows x64 from a pixelfx checkout with its dev
+dependencies installed (`npm install` there; the JS original's `**` goes through its esbuild):
 
 ```sh
 node Tools/parity.mjs --pixelfx ../pixelfx
 ```
 
-`--pixelfx` defaults to `../pixelfx` beside this package. When a test fails, it writes the C# frame that differs to
+`--pixelfx` defaults to `../pixelfx` beside this package. Why Windows x64, and why pow is replaced: `CORE.md`, Math. When a test fails, it writes the C# frame that differs to
 `<temp>/pixelfx-parity/<name>-<frame>.unity.png`. Write the JavaScript frames next to it to compare:
 
 ```sh
